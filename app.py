@@ -1,16 +1,24 @@
 from fastapi import FastAPI
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-from config.db import get_database
-from routes.studentsRoute import router as student_router
+from config.db import MongoDB
+from routes import students
+from contextlib import asynccontextmanager
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        MongoDB.get_client()
+        yield
+    finally:
+        MongoDB.close_connection()
 
-
-
-app = FastAPI(title="StudentManagementSystem",
-              description="A FastAPI backend for a student management system.",
-              version="1.0.0",)
-
+app = FastAPI(
+    title="StudentManagementSystem",
+    description="A FastAPI backend for a student management system.",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 origins = ["*"]
 app.add_middleware(
@@ -21,12 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
-@app.on_event("startup")
-async def startup_event():
-    get_database()
-
+app.include_router(students.router, tags=["students"])
 
 @app.get("/healthCheck")
 async def healthChecker():
@@ -34,12 +37,9 @@ async def healthChecker():
         "msg" : "Hello! Health checks passed!"
     }
 
-@app.include_router(student_router)
-
 @app.get("/")
 async def root():
     return {"message": "Welcome to Student Management System"}
-
 
 if __name__ == "__main__":
     uvicorn.run("app:app", reload=True, host="127.0.0.1", port=8000)

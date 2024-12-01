@@ -5,23 +5,37 @@ from pydantic_settings import BaseSettings
 import os
 from dotenv import load_dotenv
 
-logger.info("Connecting to MongoDB")
 load_dotenv()
 
 class Settings(BaseSettings):
     mongodb_uri: str = os.getenv("MONGODB_URI")
     database_name: str = "studentsDB"
 
-
-
 settings = Settings()
 
+class MongoDB:
+    _client = None
+    _db = None
+
+    @classmethod
+    def get_client(cls):
+        if cls._client is None:
+            try:
+                cls._client = MongoClient(settings.mongodb_uri)
+                cls._db = cls._client[settings.database_name]
+                logger.info("MongoDB connection established")
+            except ConnectionFailure as e:
+                logger.error("Failed to connect to MongoDB: %s", e)
+                raise
+        return cls._db
+
+    @classmethod
+    def close_connection(cls):
+        if cls._client:
+            cls._client.close()
+            cls._client = None
+            cls._db = None
+            logger.info("MongoDB connection closed")
+
 def get_database():
-    try:
-        client = MongoClient(settings.mongodb_uri)
-        logger.info("Connected to mongodb successfully")
-        db = client[settings.database_name]
-        return db
-    except ConnectionFailure as e:
-        logger.error("Failed to connect to MongoDB: %s", e)
-        raise
+    return MongoDB.get_client()
